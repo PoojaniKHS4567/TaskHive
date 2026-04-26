@@ -99,19 +99,15 @@ app.use(errorHandler);
 
 // ==================== DATABASE CONNECTION ====================
 
-mongoose.connect(process.env.MONGODB_URI!)
-  .then(() => {
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI!);
     console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`API available at http://localhost:${PORT}/api`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    });
-  })
-  .catch(err => {
+  } catch (err: any) {
     console.error('MongoDB connection error:', err.message);
-    process.exit(1);
-  });
+    throw err;
+  }
+};
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
@@ -119,3 +115,17 @@ process.on('SIGINT', async () => {
   console.log('Server shut down gracefully');
   process.exit(0);
 });
+
+// Only start server if this file is run directly (not imported by Vercel)
+if (require.main === module) {
+  connectDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API available at http://localhost:${PORT}/api`);
+      console.log(`Environment: process.env.NODE_ENV || 'development'}`);
+    });
+  });
+}
+
+// Export app for Vercel
+export default app;

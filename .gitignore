@@ -21,6 +21,7 @@ frontend/out/
 frontend/build/
 frontend/dist/
 frontend/.env.local
+frontend/next-env.d.ts 
 frontend/.env.production
 frontend/.env.development
 
