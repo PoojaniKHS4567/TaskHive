@@ -1,16 +1,16 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';  // ← ADD Viewport import
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 
+// Metadata export (NO viewport here)
 export const metadata: Metadata = {
   title: 'TaskHive - Task Management System',
   description: 'A beautiful, secure task management system for personal productivity. Track your tasks, meet deadlines, and achieve your goals.',
   keywords: 'task management, productivity, todo list, project management, personal productivity, task tracker',
   authors: [{ name: 'TaskHive' }],
-  viewport: 'width=device-width, initial-scale=1',
   icons: {
     icon: '/logo_TaskHive.jpg',
     apple: '/logo_TaskHive.jpg',
@@ -27,6 +27,12 @@ export const metadata: Metadata = {
     description: 'Track your tasks, meet deadlines, and achieve your goals',
     images: ['/logo_TaskHive.jpg'],
   },
+};
+
+// ✅ NEW: Separate viewport export
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
