@@ -122,7 +122,7 @@ if (require.main === module) {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
       console.log(`API available at http://localhost:${PORT}/api`);
-      console.log(`Environment: process.env.NODE_ENV || 'development'}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   });
 }
