@@ -99,7 +99,8 @@ app.use(errorHandler);
 
 // ==================== DATABASE CONNECTION ====================
 
-const connectDB = async () => {
+// Export the database connection function
+export const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI!);
     console.log('Connected to MongoDB');
@@ -109,20 +110,13 @@ const connectDB = async () => {
   }
 };
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  await mongoose.disconnect();
-  console.log('Server shut down gracefully');
-  process.exit(0);
-});
-
-// Only start server if this file is run directly (not imported by Vercel)
+// Only start server if this file is run directly (local development)
 if (require.main === module) {
   connectDB().then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
       console.log(`API available at http://localhost:${PORT}/api`);
-console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   });
 }
