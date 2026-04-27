@@ -31,8 +31,16 @@ app.use(helmet({
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
+
+// CORS - Allow any Vercel frontend
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (origin.includes('vercel.app') || origin === process.env.CLIENT_URL) {
+      return callback(null, true);
+    }
+    callback(null, true);
+  },
   credentials: true,
   optionsSuccessStatus: 200
 }));
@@ -65,7 +73,8 @@ app.get('/health', (_req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    mongodb_uri_set: !!process.env.MONGODB_URI
   });
 });
 
@@ -75,44 +84,54 @@ app.use('/api/tasks', taskRoutes);
 // ==================== ERROR HANDLING ====================
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: `Route not found: ${_req.method} ${_req.url}` });
 });
 
 app.use(errorHandler);
 
-// ==================== DATABASE CONNECTION (VERCEL-READY) ====================
+// ==================== DATABASE CONNECTION (FIXED FOR VERCEL) ====================
 
 // Cache connection for serverless
-let isConnected = false;
+let cachedConnection: typeof mongoose | null = null;
+let connectionPromise: Promise<typeof mongoose> | null = null;
 
-async function connectDB() {
-  if (isConnected) {
+async function connectDB(): Promise<typeof mongoose> {
+  // Return cached connection if already connected
+  if (cachedConnection && cachedConnection.connection.readyState === 1) {
     console.log('Using existing MongoDB connection');
-    return;
+    return cachedConnection;
   }
 
+  // If connection is in progress, wait for it
+  if (connectionPromise) {
+    console.log('Waiting for existing connection promise...');
+    return connectionPromise;
+  }
+
+  console.log('Creating new MongoDB connection...');
+  connectionPromise = mongoose.connect(process.env.MONGODB_URI!, {
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    heartbeatFrequencyMS: 2000,
+  });
+
   try {
-    const db = await mongoose.connect(process.env.MONGODB_URI!, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 10000,
-    });
-    isConnected = db.connections[0].readyState === 1;
+    cachedConnection = await connectionPromise;
     console.log('MongoDB connected successfully');
+    return cachedConnection;
   } catch (error) {
     console.error('MongoDB connection error:', error);
     throw error;
+  } finally {
+    connectionPromise = null;
   }
 }
 
-// Connect to database before handling requests
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('Database connection failed:', error);
-    res.status(500).json({ error: 'Database connection failed. Please try again later.' });
-  }
-});
+// Start connection immediately (don't wait for requests)
+connectDB().catch(err => console.error('Initial connection failed:', err));
+
+// NOT using middleware - routes will check connection when needed
+// The connection is already established above
 
 export default app;
