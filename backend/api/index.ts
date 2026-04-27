@@ -31,16 +31,8 @@ app.use(helmet({
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
-
-// CORS - Allow any Vercel frontend
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (origin.includes('vercel.app') || origin === process.env.CLIENT_URL) {
-      return callback(null, true);
-    }
-    callback(null, true);
-  },
+  origin: true, // Allow all origins for testing
   credentials: true,
   optionsSuccessStatus: 200
 }));
@@ -89,49 +81,36 @@ app.use((_req, res) => {
 
 app.use(errorHandler);
 
-// ==================== DATABASE CONNECTION (FIXED FOR VERCEL) ====================
+// ==================== DATABASE CONNECTION - CONNECT ONCE ====================
 
-// Cache connection for serverless
-let cachedConnection: typeof mongoose | null = null;
-let connectionPromise: Promise<typeof mongoose> | null = null;
+// Global connection cache
+let isConnected = false;
 
-async function connectDB(): Promise<typeof mongoose> {
-  // Return cached connection if already connected
-  if (cachedConnection && cachedConnection.connection.readyState === 1) {
-    console.log('Using existing MongoDB connection');
-    return cachedConnection;
+// Connect IMMEDIATELY when server starts (not in middleware)
+async function connectDB() {
+  if (isConnected) {
+    console.log('Using existing connection');
+    return;
   }
-
-  // If connection is in progress, wait for it
-  if (connectionPromise) {
-    console.log('Waiting for existing connection promise...');
-    return connectionPromise;
-  }
-
-  console.log('Creating new MongoDB connection...');
-  connectionPromise = mongoose.connect(process.env.MONGODB_URI!, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 10000,
-    connectTimeoutMS: 10000,
-    heartbeatFrequencyMS: 2000,
-  });
 
   try {
-    cachedConnection = await connectionPromise;
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(process.env.MONGODB_URI!, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+    });
+    isConnected = true;
     console.log('MongoDB connected successfully');
-    return cachedConnection;
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    throw error;
-  } finally {
-    connectionPromise = null;
+    // Don't throw - let the server start but log error
   }
 }
 
-// Start connection immediately (don't wait for requests)
-connectDB().catch(err => console.error('Initial connection failed:', err));
+// Start connection immediately
+connectDB();
 
-// NOT using middleware - routes will check connection when needed
-// The connection is already established above
+// NO middleware that waits for connection - this was causing the timeout!
 
 export default app;
